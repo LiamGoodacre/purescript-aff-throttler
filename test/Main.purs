@@ -2,18 +2,18 @@ module Test.Main where
 
 import Prelude
 
-import Data.Unfoldable (replicateA)
 import Data.Foldable (traverse_)
 import Data.Time.Duration (Milliseconds(..))
+import Data.Unfoldable (replicateA)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
 import Effect.Aff.AVar (AVar)
 import Effect.Aff.AVar as AVar
+import Effect.Aff.Throttler as Throttler
 import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect.Exception as Exception
-import Throttler as Throttler
 
 getInc :: AVar Int -> Aff Int
 getInc var = do

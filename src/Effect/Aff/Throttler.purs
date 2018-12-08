@@ -1,4 +1,4 @@
-module Throttler
+module Effect.Aff.Throttler
  ( Throttler
  , new
  , run
