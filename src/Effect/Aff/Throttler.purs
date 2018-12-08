@@ -70,13 +70,13 @@ modifyAVar avar f = AVar.take avar >>= \x → AVar.put (f x) avar
 run ∷ ∀ input . Throttler input → Aff input → Aff (Aff.Fiber Unit)
 run throttler input =
   throttler # withThrottler \ { setup, operation, teardown, stateVar } → do
-    { queuedFiber, currentFiber } <- AVar.read stateVar
+    { queuedFiber, currentFiber } ← AVar.read stateVar
     case queuedFiber of
       Just queued → pure queued
 
       Nothing → do
-        update <- Aff.suspendAff do
-          setupFiber <- Aff.suspendAff do
+        update ← Aff.suspendAff do
+          setupFiber ← Aff.suspendAff do
              setup =<< Aff.forkAff input
 
           Aff.sequential $
@@ -89,8 +89,8 @@ run throttler input =
               , currentFiber = state.queuedFiber
               }
 
-          operationFiber <- Aff.suspendAff $ operation setupFiber
-          outcome <- Aff.attempt $ Aff.joinFiber operationFiber
+          operationFiber ← Aff.suspendAff $ operation setupFiber
+          outcome ← Aff.attempt $ Aff.joinFiber operationFiber
           modifyAVar stateVar _ { currentFiber = Nothing }
           teardown operationFiber
 

@@ -15,7 +15,7 @@ import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect.Exception as Exception
 
-getInc :: AVar Int -> Aff Int
+getInc ∷ AVar Int → Aff Int
 getInc var = do
   id ← AVar.take var
   AVar.put (id + 1) var
@@ -49,9 +49,9 @@ main = Aff.launchAff_ do
       launchSubmits = do
         Aff.delay (Milliseconds 50.0)
         replicateA 20000 do
-          attemptId <- getInc counterVar1
+          attemptId ← getInc counterVar1
           Throttler.run throttledSubmit do
-            actualId <- getInc counterVar2
+            actualId ← getInc counterVar2
             pure { attemptId, actualId }
 
   traverse_ Aff.joinFiber =<<
