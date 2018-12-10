@@ -28,18 +28,17 @@ main = Aff.launchAff_ do
       id ← Aff.joinFiber getId
       liftEffect (log $ "Wait " <> show id)
       Aff.delay (Milliseconds 100.0)
-      _ <- liftEffect $ Exception.throwException (Exception.error "DEATH")
       pure id
 
     operation getId = do
       id ← Aff.joinFiber getId
-      liftEffect (log $ "Work " <> show id)
+      liftEffect (log $ "  Work " <> show id)
       Aff.delay (Milliseconds 50.0)
       pure id
 
     teardown getId = do
       id ← Aff.joinFiber getId
-      liftEffect (log $ "Done " <> show id)
+      liftEffect (log $ "    Done " <> show id)
 
   throttledSubmit ← Throttler.new setup operation teardown
 

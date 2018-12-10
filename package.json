@@ -1,0 +1,12 @@
+{
+  "name": "purescript-aff-throttler",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:LiamGoodacre/purescript-aff-throttler.git",
+  "author": "Liam Goodacre <goodacre.liam@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "purescript": "^0.12.1",
+    "purescript-psa": "^0.7.3"
+  }
+}
