@@ -1,6 +1,10 @@
 {
   "name": "purescript-aff-throttler",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LiamGoodacre/purescript-aff-throttler.git"
+  },
   "ignore": [
     "**/.*",
     "node_modules",
