@@ -8,7 +8,7 @@ module Effect.Aff.Throttler
 
 import Prelude
 
-import Data.Foldable (traverse_)
+import Data.Foldable (traverse_, for_)
 import Data.Maybe (Maybe(..))
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
@@ -61,8 +61,21 @@ new setup operation teardown =
       }
 
 kill ∷ ∀ input . Exception.Error → Throttler input → Aff Unit
-kill error = withThrottler \ { stateVar } →
-  AVar.kill error stateVar
+kill error = withThrottler \ { stateVar } → do
+  state ← AVar.take stateVar
+  ado
+    AVar.kill error stateVar
+    Aff.sequential ado
+      Aff.parallel $
+        for_ state.queuedFiber \queued -> do
+          Aff.killFiber (Exception.error "Throttle killed") queued
+          Aff.attempt $ Aff.joinFiber queued
+      Aff.parallel $
+        for_ state.currentFiber \current -> do
+          Aff.killFiber (Exception.error "Throttle killed") current
+          Aff.attempt $ Aff.joinFiber current
+      in unit
+    in unit
 
 modifyAVar ∷ ∀ a . AVar a → (a → a) → Aff Unit
 modifyAVar avar f = AVar.take avar >>= \x → AVar.put (f x) avar
@@ -92,7 +105,8 @@ run throttler input =
           operationFiber ← Aff.suspendAff $ operation setupFiber
           outcome ← Aff.attempt $ Aff.joinFiber operationFiber
           modifyAVar stateVar _ { currentFiber = Nothing }
-          teardown operationFiber
+          _ ← Aff.attempt $ teardown operationFiber
+          pure unit
 
         modifyAVar stateVar _ { queuedFiber = Just update }
         Aff.forkAff $ Aff.joinFiber update

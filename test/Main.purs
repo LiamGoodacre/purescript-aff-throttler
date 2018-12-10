@@ -28,6 +28,7 @@ main = Aff.launchAff_ do
       id ← Aff.joinFiber getId
       liftEffect (log $ "Wait " <> show id)
       Aff.delay (Milliseconds 100.0)
+      _ <- liftEffect $ Exception.throwException (Exception.error "DEATH")
       pure id
 
     operation getId = do
