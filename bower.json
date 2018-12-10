@@ -1,5 +1,6 @@
 {
   "name": "purescript-aff-throttler",
+  "license": "MIT",
   "ignore": [
     "**/.*",
     "node_modules",
