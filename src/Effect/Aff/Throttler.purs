@@ -18,39 +18,39 @@ import Effect.Exception as Exception
 import Unsafe.Coerce (unsafeCoerce)
 
 
-type State =
-  { queuedFiber ∷ Maybe (Aff.Fiber Unit)
-  , currentFiber ∷ Maybe (Aff.Fiber Unit)
+type State output =
+  { queuedFiber ∷ Maybe (Aff.Fiber output)
+  , currentFiber ∷ Maybe (Aff.Fiber output)
   }
 
-initState ∷ State
+initState ∷ ∀ output . State output
 initState =
   { queuedFiber: Nothing
   , currentFiber: Nothing
   }
 
--- Throttler input = ∃ b c . ThrottlerF input b c
-type ThrottlerF input b c =
-  { setup ∷ Aff.Fiber input → Aff b
-  , operation ∷ Aff.Fiber b → Aff c
-  , teardown ∷ Aff.Fiber c → Aff Unit
-  , stateVar ∷ AVar State
+-- Throttler input output = ∃ setup . ThrottlerF input output setup
+type ThrottlerF input output x y =
+  { setup ∷ Aff.Fiber input → Aff x
+  , operation ∷ Aff.Fiber x → Aff y
+  , teardown ∷ Aff.Fiber y → Aff output
+  , stateVar ∷ AVar (State output)
   }
 
-foreign import data Throttler ∷ Type → Type
+foreign import data Throttler ∷ Type → Type → Type
 
-makeThrottler ∷ ∀ input b c . ThrottlerF input b c → Throttler input
+makeThrottler ∷ ∀ input output x y . ThrottlerF input output x y → Throttler input output
 makeThrottler = unsafeCoerce
 
-withThrottler ∷ ∀ input r . (∀ b c . ThrottlerF input b c → r) → Throttler input → r
+withThrottler ∷ ∀ input output r . (∀ x y . ThrottlerF input output x y → r) → Throttler input output → r
 withThrottler f t = f (unsafeCoerce t)
 
 new ∷
-  ∀ input b c .
-  (Aff.Fiber input → Aff b) →
-  (Aff.Fiber b → Aff c) →
-  (Aff.Fiber c → Aff Unit) →
-  Aff (Throttler input)
+  ∀ input output x y .
+  (Aff.Fiber input → Aff x) →
+  (Aff.Fiber x → Aff y) →
+  (Aff.Fiber y → Aff output) →
+  Aff (Throttler input output)
 new setup operation teardown =
   AVar.new initState <#> \stateVar →
     makeThrottler
@@ -60,7 +60,7 @@ new setup operation teardown =
       , stateVar
       }
 
-kill ∷ ∀ input . Exception.Error → Throttler input → Aff Unit
+kill ∷ ∀ input output . Exception.Error → Throttler input output → Aff Unit
 kill error = withThrottler \ { stateVar } → do
   state ← AVar.take stateVar
   ado
@@ -80,7 +80,7 @@ kill error = withThrottler \ { stateVar } → do
 modifyAVar ∷ ∀ a . AVar a → (a → a) → Aff Unit
 modifyAVar avar f = AVar.take avar >>= \x → AVar.put (f x) avar
 
-run ∷ ∀ input . Throttler input → Aff input → Aff (Aff.Fiber Unit)
+run ∷ ∀ input output . Throttler input output → Aff input → Aff (Aff.Fiber output)
 run throttler input =
   throttler # withThrottler \ { setup, operation, teardown, stateVar } → do
     { queuedFiber, currentFiber } ← AVar.read stateVar
@@ -93,7 +93,7 @@ run throttler input =
              setup =<< Aff.forkAff input
 
           Aff.sequential $
-            Aff.parallel (traverse_ Aff.joinFiber currentFiber) <*
+            Aff.parallel (traverse_ (Aff.attempt <<< Aff.joinFiber) currentFiber) <*
             Aff.parallel (Aff.attempt $ Aff.joinFiber setupFiber)
 
           modifyAVar stateVar \state →
@@ -103,14 +103,13 @@ run throttler input =
               }
 
           operationFiber ← Aff.suspendAff $ operation setupFiber
-          outcome ← Aff.attempt $ Aff.joinFiber operationFiber
+          _ ← Aff.attempt $ Aff.joinFiber operationFiber
           modifyAVar stateVar _ { currentFiber = Nothing }
-          _ ← Aff.attempt $ teardown operationFiber
-          pure unit
+          teardown operationFiber
 
         modifyAVar stateVar _ { queuedFiber = Just update }
         Aff.forkAff $ Aff.joinFiber update
 
-runSimple ∷ Throttler Unit → Aff (Aff.Fiber Unit)
+runSimple ∷ ∀ output . Throttler Unit output → Aff (Aff.Fiber output)
 runSimple t = run t (pure unit)
 
